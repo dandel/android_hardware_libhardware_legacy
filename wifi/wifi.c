@@ -50,10 +50,10 @@ static char iface[PROPERTY_VALUE_MAX];
 // sockets is in
 
 #ifndef WIFI_DRIVER_MODULE_PATH
-#define WIFI_DRIVER_MODULE_PATH         "/system/lib/modules/wlan.ko"
+#define WIFI_DRIVER_MODULE_PATH         "/system/lib/modules/rt2070sta.ko"
 #endif
 #ifndef WIFI_DRIVER_MODULE_NAME
-#define WIFI_DRIVER_MODULE_NAME         "wlan"
+#define WIFI_DRIVER_MODULE_NAME         "rt2070sta"
 #endif
 #ifndef WIFI_DRIVER_MODULE_ARG
 #define WIFI_DRIVER_MODULE_ARG          ""
@@ -63,7 +63,7 @@ static char iface[PROPERTY_VALUE_MAX];
 #endif
 #define WIFI_TEST_INTERFACE		"sta"
 
-#define WIFI_DRIVER_LOADER_DELAY	1000000
+#define WIFI_DRIVER_LOADER_DELAY	1000
 
 static const char IFACE_DIR[]           = "/data/system/wpa_supplicant";
 static const char DRIVER_MODULE_NAME[]  = WIFI_DRIVER_MODULE_NAME;
@@ -298,6 +298,8 @@ int wifi_load_driver()
     char driver_status[PROPERTY_VALUE_MAX];
     int count = 100; /* wait at most 20 seconds for completion */
 
+    sleep(1);
+
     if (check_driver_loaded()) {
         return 0;
     }
@@ -320,6 +322,8 @@ int wifi_load_driver()
     }
     sched_yield();
     while (count-- > 0) {
+        usleep(500000);
+
         if (property_get(DRIVER_PROP_NAME, driver_status, NULL)) {
             if (strcmp(driver_status, "ok") == 0)
                 return 0;
@@ -340,6 +344,9 @@ int wifi_unload_driver()
     int count = 20; /* wait at most 10 seconds for completion */
 
     if (rmmod(DRIVER_MODULE_NAME) == 0) {
+        usleep(1000000);
+        return 0;
+        /*
         while (count-- > 0) {
             if (!check_driver_loaded())
                 break;
@@ -354,6 +361,7 @@ int wifi_unload_driver()
 #endif
         }
         return -1;
+        */
     } else
         return -1;
 }
@@ -462,6 +470,8 @@ int wifi_start_supplicant()
         if (pi != NULL) {
             __system_property_read(pi, NULL, supp_status);
             if (strcmp(supp_status, "running") == 0) {
+                // introduce delay to prevent the device from tripping up.
+                usleep(2000000);
                 return 0;
             } else if (pi->serial != serial &&
                     strcmp(supp_status, "stopped") == 0) {
@@ -552,6 +562,8 @@ int wifi_send_command(struct wpa_ctrl *ctrl, const char *cmd, char *reply, size_
         LOGV("Not connected to wpa_supplicant - \"%s\" command dropped.\n", cmd);
         return -1;
     }
+
+    memset(reply, 0, *reply_len);
     ret = wpa_ctrl_request(ctrl, cmd, strlen(cmd), reply, reply_len, NULL);
     if (ret == -2) {
         LOGD("'%s' command timed out.\n", cmd);
